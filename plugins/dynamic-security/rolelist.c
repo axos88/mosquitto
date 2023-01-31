@@ -23,6 +23,7 @@ Contributors:
 #include <string.h>
 #include <uthash.h>
 #include <utlist.h>
+#include <yaml.h>
 
 #include "dynamic_security.h"
 #include "json_help.h"
@@ -66,7 +67,7 @@ void dynsec_rolelist__cleanup(struct dynsec__rolelist **base_rolelist)
 	}
 }
 
-static int dynsec_rolelist__remove_role(struct dynsec__rolelist **base_rolelist, const struct dynsec__role *role)
+int dynsec_rolelist__remove_role(struct dynsec__rolelist **base_rolelist, const struct dynsec__role *role)
 {
 	struct dynsec__rolelist *found_rolelist;
 
@@ -106,7 +107,7 @@ void dynsec_rolelist__group_remove(struct dynsec__group *group, struct dynsec__r
 }
 
 
-static int dynsec_rolelist__add(struct dynsec__rolelist **base_rolelist, struct dynsec__role *role, int priority)
+int dynsec_rolelist__add(struct dynsec__rolelist **base_rolelist, struct dynsec__role *role, int priority)
 {
 	struct dynsec__rolelist *rolelist;
 	size_t rolename_len;
@@ -168,64 +169,3 @@ int dynsec_rolelist__group_add(struct dynsec__group *group, struct dynsec__role 
 	return rc;
 }
 
-
-int dynsec_rolelist__load_from_json(struct dynsec__data *data, cJSON *command, struct dynsec__rolelist **rolelist)
-{
-	cJSON *j_roles, *j_role, *j_rolename;
-	int priority;
-	struct dynsec__role *role;
-
-	j_roles = cJSON_GetObjectItem(command, "roles");
-	if(j_roles){
-		if(cJSON_IsArray(j_roles)){
-			cJSON_ArrayForEach(j_role, j_roles){
-				j_rolename = cJSON_GetObjectItem(j_role, "rolename");
-				if(j_rolename && cJSON_IsString(j_rolename)){
-					json_get_int(j_role, "priority", &priority, true, -1);
-					role = dynsec_roles__find(data, j_rolename->valuestring);
-					if(role){
-						dynsec_rolelist__add(rolelist, role, priority);
-					}else{
-						dynsec_rolelist__cleanup(rolelist);
-						return MOSQ_ERR_NOT_FOUND;
-					}
-				}else{
-					return MOSQ_ERR_INVAL;
-				}
-			}
-			return MOSQ_ERR_SUCCESS;
-		}else{
-			return MOSQ_ERR_INVAL;
-		}
-	}else{
-		return ERR_LIST_NOT_FOUND;
-	}
-}
-
-
-cJSON *dynsec_rolelist__all_to_json(struct dynsec__rolelist *base_rolelist)
-{
-	struct dynsec__rolelist *rolelist, *rolelist_tmp;
-	cJSON *j_roles, *j_role;
-
-	j_roles = cJSON_CreateArray();
-	if(j_roles == NULL) return NULL;
-
-	HASH_ITER(hh, base_rolelist, rolelist, rolelist_tmp){
-		j_role = cJSON_CreateObject();
-		if(j_role == NULL){
-			cJSON_Delete(j_roles);
-			return NULL;
-		}
-		cJSON_AddItemToArray(j_roles, j_role);
-
-		if(cJSON_AddStringToObject(j_role, "rolename", rolelist->role->rolename) == NULL
-				|| (rolelist->priority != -1 && cJSON_AddIntToObject(j_role, "priority", rolelist->priority) == NULL)
-				){
-
-			cJSON_Delete(j_roles);
-			return NULL;
-		}
-	}
-	return j_roles;
-}

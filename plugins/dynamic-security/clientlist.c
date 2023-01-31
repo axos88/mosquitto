@@ -61,7 +61,6 @@ static int dynsec_clientlist__cmp(void *a, void *b)
 	return strcmp(clientlist_a->client->username, clientlist_b->client->username);
 }
 
-
 void dynsec_clientlist__kick_all(struct dynsec__data *data, struct dynsec__clientlist *base_clientlist)
 {
 	struct dynsec__clientlist *clientlist, *clientlist_tmp;
@@ -70,34 +69,6 @@ void dynsec_clientlist__kick_all(struct dynsec__data *data, struct dynsec__clien
 		dynsec_kicklist__add(data, clientlist->client->username);
 	}
 }
-
-cJSON *dynsec_clientlist__all_to_json(struct dynsec__clientlist *base_clientlist)
-{
-	struct dynsec__clientlist *clientlist, *clientlist_tmp;
-	cJSON *j_clients, *j_client;
-
-	j_clients = cJSON_CreateArray();
-	if(j_clients == NULL) return NULL;
-
-	HASH_ITER(hh, base_clientlist, clientlist, clientlist_tmp){
-		j_client = cJSON_CreateObject();
-		if(j_client == NULL){
-			cJSON_Delete(j_clients);
-			return NULL;
-		}
-		cJSON_AddItemToArray(j_clients, j_client);
-
-		if(cJSON_AddStringToObject(j_client, "username", clientlist->client->username) == NULL
-				|| (clientlist->priority != -1 && cJSON_AddIntToObject(j_client, "priority", clientlist->priority) == NULL)
-				){
-
-			cJSON_Delete(j_clients);
-			return NULL;
-		}
-	}
-	return j_clients;
-}
-
 
 int dynsec_clientlist__add(struct dynsec__clientlist **base_clientlist, struct dynsec__client *client, int priority)
 {
@@ -120,7 +91,6 @@ int dynsec_clientlist__add(struct dynsec__clientlist **base_clientlist, struct d
 
 	return MOSQ_ERR_SUCCESS;
 }
-
 
 void dynsec_clientlist__cleanup(struct dynsec__clientlist **base_clientlist)
 {

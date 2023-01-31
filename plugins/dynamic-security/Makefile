@@ -4,13 +4,14 @@ include ${R}/config.mk
 .PHONY : all binary check clean reallyclean test test-compile install uninstall
 
 PLUGIN_NAME=mosquitto_dynamic_security
-LOCAL_CPPFLAGS=-I${R}/lib/ -I${R}/src/ -I${R}/plugins/common -DWITH_CJSON -DWITH_TLS
+LOCAL_CPPFLAGS=-I${R}/lib/ -I${R}/src/ -I${R}/plugins/common -I$(CURDIR)
 ifeq ($(WITH_BUNDLED_DEPS),yes)
 	LOCAL_CPPFLAGS:=$(LOCAL_CPPFLAGS) -I${R}/deps
 endif
 
 OBJS=	\
 		acl.o \
+		acllist.o \
 		auth.o \
 		base64_mosq.o \
 		clients.o \
@@ -23,7 +24,6 @@ OBJS=	\
 		groups.o \
 		grouplist.o \
 		hash.o \
-		json_help.o \
 		kicklist.o \
 		misc_mosq.o \
 		password_mosq.o \
@@ -33,7 +33,11 @@ OBJS=	\
 		tick.o
 
 ifeq ($(WITH_CJSON),yes)
+PLUGIN_LIBS += -lcjson
+OBJS += config/clients_json.o config/clientlist_json.o config/groups_json.o config/roles_json.o config/rolelist_json.o config/acllist_json.o config/acls_json.o config/config_json.o config/json_help.o
+LOCAL_CPPFLAGS += -DWITH_CJSON
 ifeq ($(WITH_TLS),yes)
+LOCAL_CPPFLAGS += -DWITH_TLS
 ALL_DEPS:= binary
 else
 ALL_DEPS:=
@@ -42,13 +46,22 @@ else
 ALL_DEPS:=
 endif
 
+ifeq ($(WITH_YAML),yes)
+PLUGIN_LIBS += -lyaml
+OBJS += config/yaml_help.o config/clients_yaml.o config/clientlist_yaml.o config/groups_yaml.o config/roles_yaml.o config/rolelist_yaml.o config/acllist_yaml.o config/acls_yaml.o config/config_yaml.o
+LOCAL_CPPFLAGS += -DWITH_YAML
+endif
+
 all : ${ALL_DEPS}
 binary : ${PLUGIN_NAME}.so
 
 ${PLUGIN_NAME}.so : ${OBJS}
-	${CROSS_COMPILE}${CC} $(PLUGIN_LDFLAGS) -fPIC -shared $^ -o $@ -lcjson
+	${CROSS_COMPILE}${CC} $(PLUGIN_LDFLAGS) -fPIC -shared $^ -o $@ $(PLUGIN_LIBS)
 
 acl.o : acl.c dynamic_security.h
+	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
+
+acllist.o : acllist.c dynamic_security.h
 	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
 
 auth.o : auth.c dynamic_security.h
@@ -63,7 +76,16 @@ clients.o : clients.c dynamic_security.h
 clientlist.o : clientlist.c dynamic_security.h
 	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
 
-config.o : config.c dynamic_security.h
+config.o : config.c dynamic_security.h ${R}/config.mk
+	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
+
+config/%_yaml.o : config/%_yaml.c dynamic_security.h config/yaml_help.h ${R}/config.mk
+	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
+
+config/yaml_help.o : config/yaml_help.c dynamic_security.h config/yaml_help.h ${R}/config.mk
+	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
+
+config/%_json.o : config/%_json.c dynamic_security.h ${R}/config.mk
 	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
 
 config_init.o : config_init.c dynamic_security.h
@@ -84,7 +106,7 @@ grouplist.o : grouplist.c dynamic_security.h
 hash.o : hash.c dynamic_security.h
 	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
 
-json_help.o : ${R}/common/json_help.c ${R}/common/json_help.h
+config/json_help.o : ${R}/common/json_help.c ${R}/common/json_help.h
 	${CROSS_COMPILE}${CC} $(LOCAL_CPPFLAGS) $(PLUGIN_CPPFLAGS) $(PLUGIN_CFLAGS) -c $< -o $@
 
 kicklist.o : kicklist.c dynamic_security.h
@@ -113,7 +135,7 @@ tick.o : tick.c dynamic_security.h
 
 reallyclean : clean
 clean:
-	-rm -f *.o ${PLUGIN_NAME}.so *.gcda *.gcno
+	-rm -f *.o ${PLUGIN_NAME}.so *.gcda *.gcno config/*.o
 
 test-compile:
 
