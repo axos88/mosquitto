@@ -114,12 +114,16 @@
 				{"type":"send", "payload":"82 07 1234 00 0001 70 30"},
 				{"type":"recv", "payload":"E0 01 81"}
 			]},
-			{ "name": "82 QoS 0x40 [MQTT-3-8.3-5]", "msgs": [
+			{ "name": "82 QoS 0 options=0x40 [MQTT-3-8.3-5]", "msgs": [
 				{"type":"send", "payload":"82 07 1234 00 0001 70 40"},
 				{"type":"recv", "payload":"E0 01 81"}
 			]},
-			{ "name": "82 QoS 0x80 [MQTT-3-8.3-5]", "msgs": [
+			{ "name": "82 QoS 0 options=0x80 [MQTT-3-8.3-5]", "msgs": [
 				{"type":"send", "payload":"82 07 1234 00 0001 70 80"},
+				{"type":"recv", "payload":"E0 01 81"}
+			]},
+			{ "name": "82 QoS 0 options=0xF0 [MQTT-3-8.3-5]", "msgs": [
+				{"type":"send", "payload":"82 07 1234 00 0001 70 F0"},
 				{"type":"recv", "payload":"E0 01 81"}
 			]},
 			{ "name": "82 topic with 0x0000", "msgs": [

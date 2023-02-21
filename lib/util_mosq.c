@@ -174,15 +174,17 @@ int mosquitto__hex2bin(const char *hex, unsigned char *bin, int bin_max_len)
 	BIGNUM *bn = NULL;
 	int len;
 	int leading_zero = 0;
-	int start = 0;
 	size_t i = 0;
 
 	/* Count the number of leading zero */
 	for(i=0; i<strlen(hex); i=i+2) {
 		if(strncmp(hex + i, "00", 2) == 0) {
-			leading_zero++;
+			if(leading_zero >= bin_max_len){
+				return 0;
+			}
 			/* output leading zero to bin */
-			bin[start++] = 0;
+			bin[leading_zero] = 0;
+			leading_zero++;
 		}else{
 			break;
 		}

@@ -3106,6 +3106,23 @@ libmosq_EXPORT int mosquitto_property_add_string_pair(mosquitto_property **propl
 
 
 /*
+ * Function: mosquitto_property_remove
+ *
+ * Remove a property from a property list. The property will not be freed.
+ *
+ * Parameters:
+ *	proplist - pointer to mosquitto_property pointer, the list of properties
+ *	property - pointer to the property to remove
+ *
+ * Returns:
+ *	MOSQ_ERR_SUCCESS - on success
+ *	MOSQ_ERR_INVAL - if proplist is NULL or property is NULL
+ *	MOSQ_ERR_NOT_FOUND - if the property was not found
+ */
+libmosq_EXPORT int mosquitto_property_remove(mosquitto_property **proplist, const mosquitto_property *property);
+
+
+/*
  * Function: mosquitto_property_identifier
  *
  * Return the property identifier for a single property.

@@ -70,7 +70,7 @@ int send__publish(struct mosquitto *mosq, uint16_t mid, const char *topic, uint3
 		tmp_msg.retain = retain;
 		tmp_msg.properties = (mosquitto_property *) store_props;
 
-		plugin__handle_message_out(mosq, &tmp_msg);
+		rc = plugin__handle_message_out(mosq, &tmp_msg);
 
 		if(tmp_msg.payload != payload) payload_changed = true;
 		if(tmp_msg.topic != topic) topic_changed = true;
@@ -82,6 +82,23 @@ int send__publish(struct mosquitto *mosq, uint16_t mid, const char *topic, uint3
 		qos = tmp_msg.qos;
 		retain = tmp_msg.retain;
 		store_props = tmp_msg.properties;
+
+		if(rc != MOSQ_ERR_SUCCESS){
+			if(payload_changed) mosquitto__free((void *) payload);
+			if(topic_changed) mosquitto__free((char *) topic);
+			if(properties_changed) mosquitto_property_free_all((mosquitto_property **) &store_props);
+			if(rc == MOSQ_ERR_ACL_DENIED){
+				log__printf(NULL, MOSQ_LOG_DEBUG,
+						"Denied PUBLISH to %s (q%d, r%d, '%s', ... (%ld bytes))",
+						mosq->id, qos, retain, topic, (long)payloadlen);
+
+			}else if(rc == MOSQ_ERR_QUOTA_EXCEEDED){
+				log__printf(NULL, MOSQ_LOG_DEBUG,
+						"Rejected PUBLISH to %s, quota exceeded.", mosq->id);
+			}
+
+			return MOSQ_ERR_SUCCESS;
+		}
 	}
 #endif
 

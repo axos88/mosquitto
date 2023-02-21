@@ -15,8 +15,10 @@ def do_test():
     connack_packet = mosq_test.gen_connack(rc=0, proto_ver=5)
 
     mid = 1
-    subscribe_packet = mosq_test.gen_subscribe(mid, "out-topic", 2, proto_ver=5)
+    subscribe_packet = mosq_test.gen_subscribe(mid, "#", 2, proto_ver=5)
     suback_packet = mosq_test.gen_suback(mid, 2, proto_ver=5)
+
+    publish_packet_deny = mosq_test.gen_publish("deny", qos=0, payload="message1", proto_ver=5)
 
     props = mqtt5_props.gen_string_prop(mqtt5_props.PROP_RESPONSE_TOPIC, "response/topic")
     publish_packet1 = mosq_test.gen_publish("out-topic", qos=0, payload="message1", proto_ver=5, properties=props)
@@ -33,8 +35,13 @@ def do_test():
         sock = mosq_test.do_client_connect(connect_packet, connack_packet, timeout=20, port=port)
 
         mosq_test.do_send_receive(sock, subscribe_packet, suback_packet, "suback")
+
+        sock.send(publish_packet_deny)
+        mosq_test.do_ping(sock)
+
         sock.send(publish_packet1)
         mosq_test.expect_packet(sock, "publish2", publish_packet2)
+        mosq_test.do_ping(sock)
 
         rc = 0
 

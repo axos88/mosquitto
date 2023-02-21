@@ -144,7 +144,16 @@ static int config__check_bridges(struct mosquitto__config *config);
 static int config__add_listener(struct mosquitto__config *config)
 {
 	struct mosquitto__listener *listener;
+	int def_listener = -1;
 
+	if(config->default_listener){
+		for(int i=0; i<config->listener_count; i++){
+			if(&config->listeners[i] == config->default_listener){
+				def_listener = i;
+				break;
+			}
+		}
+	}
 	config->listener_count++;
 	config->listeners = mosquitto__realloc(config->listeners, sizeof(struct mosquitto__listener)*(size_t)config->listener_count);
 	if(!config->listeners){
@@ -157,6 +166,9 @@ static int config__add_listener(struct mosquitto__config *config)
 	if(!listener->security_options){
 		log__printf(NULL, MOSQ_LOG_ERR, "Error: Out of memory.");
 		return MOSQ_ERR_NOMEM;
+	}
+	if(def_listener != -1){
+		config->default_listener = &config->listeners[def_listener];
 	}
 
 	return MOSQ_ERR_SUCCESS;
@@ -989,7 +1001,12 @@ static int config__read_file_core(struct mosquitto__config *config, bool reload,
 							log__printf(NULL, MOSQ_LOG_ERR, "Error: Out of memory.");
 							return MOSQ_ERR_NOMEM;
 						}
-						cur_bridge->addresses[cur_bridge->address_count-1].address = token;
+						memset(&cur_bridge->addresses[cur_bridge->address_count-1], 0, sizeof(struct bridge_address));
+						cur_bridge->addresses[cur_bridge->address_count-1].address = mosquitto__strdup(token);
+						if(!cur_bridge->addresses[cur_bridge->address_count-1].address){
+							log__printf(NULL, MOSQ_LOG_ERR, "Error: Out of memory.");
+							return MOSQ_ERR_NOMEM;
+						}
 					}
 					for(i=0; i<cur_bridge->address_count; i++){
 						/* cur_bridge->addresses[i].address is now
@@ -1012,12 +1029,6 @@ static int config__read_file_core(struct mosquitto__config *config, bool reload,
 						}else{
 							cur_bridge->addresses[i].port = 1883;
 						}
-						/* This looks a bit weird, but isn't. Before this
-						 * call, cur_bridge->addresses[i].address points
-						 * to the tokenised part of the line, it will be
-						 * reused in a future parse of a config line so we
-						 * must duplicate it. */
-						cur_bridge->addresses[i].address = mosquitto__strdup(cur_bridge->addresses[i].address);
 						conf__attempt_resolve(cur_bridge->addresses[i].address, "bridge address", MOSQ_LOG_WARNING, "Warning");
 					}
 					if(cur_bridge->address_count == 0){

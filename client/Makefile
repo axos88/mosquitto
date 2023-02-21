@@ -3,6 +3,10 @@ include ${R}/config.mk
 
 .PHONY: all install uninstall reallyclean clean static static_pub static_sub static_rr
 
+CLIENT_CFLAGS:=$(CLIENT_CFLAGS) $(CFLAGS)
+CLIENT_CPPFLAGS:=$(CLIENT_CPPFLAGS) $(CPPFLAGS)
+CLIENT_LDFLAGS:=$(CLIENT_LDFLAGS) $(LDFLAGS)
+
 ifeq ($(WITH_SHARED_LIBRARIES),yes)
 SHARED_DEP:=${R}/lib/libmosquitto.so.${SOVERSION}
 endif

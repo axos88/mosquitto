@@ -12,13 +12,20 @@ OBJS=	mosquitto_passwd.o \
 		password_mosq.o
 
 ifeq ($(WITH_TLS),yes)
-all: mosquitto_passwd
+ifeq ($(WITH_FUZZING),yes)
+all : mosquitto_passwd.a
+else
+all : mosquitto_passwd
+endif
 else
 all:
 endif
 
 mosquitto_passwd : ${OBJS}
-	${CROSS_COMPILE}${CC} ${APP_LDFLAGS} $^ -o $@ $(PASSWD_LDADD)
+	${CROSS_COMPILE}${CC} ${LDFLAGS} ${APP_LDFLAGS} $^ -o $@ $(PASSWD_LDADD)
+
+mosquitto_passwd.a : ${OBJS}
+	${CROSS_COMPILE}$(AR) cr $@ $^
 
 mosquitto_passwd.o : mosquitto_passwd.c
 	${CROSS_COMPILE}${CC} $(APP_CPPFLAGS) $(APP_CFLAGS) -c $< -o $@
@@ -51,7 +58,7 @@ uninstall :
 	-rm -f "${DESTDIR}${prefix}/bin/mosquitto_passwd"
 
 clean :
-	-rm -f *.o mosquitto_passwd *.gcda *.gcno
+	-rm -f *.o *.a mosquitto_passwd *.gcda *.gcno
 
 reallyclean : clean
 	-rm -rf *.orig *.db

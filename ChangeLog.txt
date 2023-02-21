@@ -163,6 +163,8 @@ Client library:
   version.
 - Add `mosquitto_unsubscribe2_v5_callback_set`, which provides a callback that
   gives access to reason codes for each of the unsubscription requests.
+- Add `mosquitto_property_remove`, for removing properties from property
+  lists.
 
 Clients:
 - Add `-W` timeout support to Windows.

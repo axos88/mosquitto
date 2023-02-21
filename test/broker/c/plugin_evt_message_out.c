@@ -18,6 +18,9 @@ int callback_message_out(int event, void *event_data, void *user_data)
 	if(event != MOSQ_EVT_MESSAGE_OUT){
 		abort();
 	}
+	if(!strcmp(ed->topic, "deny")){
+		return MOSQ_ERR_ACL_DENIED;
+	}
 	ed->topic = mosquitto_strdup("new-topic");
 	ed->payload = mosquitto_strdup("new-message");
 	ed->payloadlen = strlen(ed->payload);

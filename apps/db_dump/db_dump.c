@@ -121,7 +121,6 @@ static int dump__cfg_chunk_process(FILE *db_fd, uint32_t length)
 	}
 	if(rc){
 		fprintf(stderr, "Error: Corrupt persistent database.\n");
-		fclose(db_fd);
 		return rc;
 	}
 
@@ -132,8 +131,7 @@ static int dump__cfg_chunk_process(FILE *db_fd, uint32_t length)
 	if(chunk.dbid_size != sizeof(dbid_t)){
 		fprintf(stderr, "Error: Incompatible database configuration (dbid size is %d bytes, expected %zu)",
 				chunk.dbid_size, sizeof(dbid_t));
-		fclose(db_fd);
-		return 1;
+		return MOSQ_ERR_INVAL;
 	}
 	if(do_print) printf("\tLast DB ID: %" PRIu64 "\n", chunk.last_db_id);
 
@@ -145,7 +143,7 @@ static int dump__client_chunk_process(FILE *db_fd, uint32_t length)
 {
 	struct P_client chunk;
 	int rc = 0;
-	struct client_data *cc;
+	struct client_data *cc = NULL;
 
 	client_count++;
 
@@ -161,13 +159,12 @@ static int dump__client_chunk_process(FILE *db_fd, uint32_t length)
 		return rc;
 	}
 
-	if(client_stats){
+	if(client_stats && chunk.clientid){
 		cc = calloc(1, sizeof(struct client_data));
 		if(!cc){
 			fprintf(stderr, "Error: Out of memory.\n");
-			fclose(db_fd);
 			free(chunk.clientid);
-			return 1;
+			return MOSQ_ERR_NOMEM;
 		}
 		cc->id = strdup(chunk.clientid);
 		HASH_ADD_KEYPTR(hh_id, clients_by_id, cc->id, strlen(cc->id), cc);
@@ -199,11 +196,10 @@ static int dump__client_msg_chunk_process(FILE *db_fd, uint32_t length)
 	}
 	if(rc){
 		fprintf(stderr, "Error: Corrupt persistent database.\n");
-		fclose(db_fd);
 		return rc;
 	}
 
-	if(client_stats){
+	if(client_stats && chunk.clientid){
 		HASH_FIND(hh_id, clients_by_id, chunk.clientid, strlen(chunk.clientid), cc);
 		if(cc){
 			cc->messages++;
@@ -243,7 +239,6 @@ static int dump__base_msg_chunk_process(FILE *db_fptr, uint32_t length)
 	}
 	if(rc){
 		fprintf(stderr, "Error: Corrupt persistent database.\n");
-		fclose(db_fptr);
 		return rc;
 	}
 
@@ -260,7 +255,7 @@ static int dump__base_msg_chunk_process(FILE *db_fptr, uint32_t length)
 
 	stored = mosquitto__calloc(1, sizeof(struct mosquitto__base_msg));
 	if(stored == NULL){
-		fclose(db_fptr);
+		fprintf(stderr, "Error: Out of memory.\n");
 		mosquitto__free(chunk.source.id);
 		mosquitto__free(chunk.source.username);
 		mosquitto__free(chunk.topic);
@@ -290,15 +285,15 @@ static int dump__base_msg_chunk_process(FILE *db_fptr, uint32_t length)
 
 		HASH_ADD(hh, db.msg_store, data.store_id, sizeof(dbid_t), stored);
 	}else{
-		fclose(db_fptr);
+		fprintf(stderr, "Error: Out of memory.\n");
 		return rc;
 	}
 
 	if(client_stats){
 		mcs = calloc(1, sizeof(struct base_msg_chunk));
 		if(!mcs){
-			errno = ENOMEM;
-			return 1;
+			fprintf(stderr, "Error: Out of memory.\n");
+			return MOSQ_ERR_NOMEM;
 		}
 		mcs->store_id = chunk.F.store_id;
 		mcs->length = length;
@@ -330,7 +325,6 @@ static int dump__retain_chunk_process(FILE *db_fd, uint32_t length)
 	}
 	if(rc){
 		fprintf(stderr, "Error: Corrupt persistent database.\n");
-		fclose(db_fd);
 		return rc;
 	}
 
@@ -355,11 +349,10 @@ static int dump__sub_chunk_process(FILE *db_fd, uint32_t length)
 	}
 	if(rc){
 		fprintf(stderr, "Error: Corrupt persistent database.\n");
-		fclose(db_fd);
 		return rc;
 	}
 
-	if(client_stats){
+	if(client_stats && chunk.clientid){
 		HASH_FIND(hh_id, clients_by_id, chunk.clientid, strlen(chunk.clientid), cc);
 		if(cc){
 			cc->subscriptions++;
@@ -387,7 +380,11 @@ static void cleanup_msg_store()
 }
 
 
+#ifdef WITH_FUZZING
+int db_dump_fuzz_main(int argc, char *argv[])
+#else
 int main(int argc, char *argv[])
+#endif
 {
 	FILE *fd;
 	char header[15];
@@ -436,27 +433,27 @@ int main(int argc, char *argv[])
 		while(persist__chunk_header_read(fd, &chunk, &length) == MOSQ_ERR_SUCCESS){
 			switch(chunk){
 				case DB_CHUNK_CFG:
-					if(dump__cfg_chunk_process(fd, length)) return 1;
+					if(dump__cfg_chunk_process(fd, length)) goto error;
 					break;
 
 				case DB_CHUNK_BASE_MSG:
-					if(dump__base_msg_chunk_process(fd, length)) return 1;
+					if(dump__base_msg_chunk_process(fd, length)) goto error;
 					break;
 
 				case DB_CHUNK_CLIENT_MSG:
-					if(dump__client_msg_chunk_process(fd, length)) return 1;
+					if(dump__client_msg_chunk_process(fd, length)) goto error;
 					break;
 
 				case DB_CHUNK_RETAIN:
-					if(dump__retain_chunk_process(fd, length)) return 1;
+					if(dump__retain_chunk_process(fd, length)) goto error;
 					break;
 
 				case DB_CHUNK_SUB:
-					if(dump__sub_chunk_process(fd, length)) return 1;
+					if(dump__sub_chunk_process(fd, length)) goto error;
 					break;
 
 				case DB_CHUNK_CLIENT:
-					if(dump__client_chunk_process(fd, length)) return 1;
+					if(dump__client_chunk_process(fd, length)) goto error;
 					break;
 
 				default:
@@ -499,7 +496,6 @@ int main(int argc, char *argv[])
 	return rc;
 error:
 	cleanup_msg_store();
-	fprintf(stderr, "Error: Corrupt persistent database.\n");
 	if(fd) fclose(fd);
 	return 1;
 }

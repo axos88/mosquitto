@@ -64,7 +64,7 @@ BROKER_EXPORT int mosquitto_validate_utf8(const char *str, int len)
 		}
 
 		/* Reconstruct full code point */
-		if(i == len-codelen+1){
+		if(i >= len-codelen+1){
 			/* Not enough data */
 			return MOSQ_ERR_MALFORMED_UTF8;
 		}

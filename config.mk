@@ -135,8 +135,16 @@ WITH_OLD_KEEPALIVE=no
 # Build with sqlite3 support - this enables the sqlite persistence plugin.
 WITH_SQLITE=yes
 
+# Build broker for fuzzing only - does not work as a normal broker. This is
+# currently only suitable for use with oss-fuzz.
+WITH_FUZZING=no
+
 # Build with yaml support - this enables the dynamic security plugin to read/write yaml configuration files
-WITH_YAML=no
+WITH_YAML=yes
+
+# To also install example plugins,
+# uncomment the following line and replace XXX with the SCREAMING_SNAKE_CASE of the example plugin.
+# INSTALL_XXX_PLUGIN=yes
 
 # =============================================================================
 # End of user configuration

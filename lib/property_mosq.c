@@ -1197,6 +1197,33 @@ BROKER_EXPORT const mosquitto_property *mosquitto_property_read_string_pair(cons
 }
 
 
+BROKER_EXPORT int mosquitto_property_remove(mosquitto_property **proplist, const mosquitto_property *property)
+{
+	mosquitto_property *item, *item_prev = NULL;
+
+	if(proplist == NULL || property == NULL){
+		return MOSQ_ERR_INVAL;
+	}
+
+	item = *proplist;
+	while(item){
+		if(item == property){
+			if(item_prev == NULL){
+				*proplist = (*proplist)->next;
+			}else{
+				item_prev->next = item->next;
+			}
+			item->next = NULL;
+			return MOSQ_ERR_SUCCESS;
+		}
+		item_prev = item;
+		item = item->next;
+	}
+
+	return MOSQ_ERR_NOT_FOUND;
+}
+
+
 BROKER_EXPORT int mosquitto_property_copy_all(mosquitto_property **dest, const mosquitto_property *src)
 {
 	mosquitto_property *pnew, *plast = NULL;

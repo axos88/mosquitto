@@ -296,7 +296,11 @@ static void report_features(void)
 }
 
 
+#ifdef WITH_FUZZING
+int mosquitto_fuzz_main(int argc, char *argv[])
+#else
 int main(int argc, char *argv[])
+#endif
 {
 	struct mosquitto__config config;
 	int rc;
@@ -351,14 +355,19 @@ int main(int argc, char *argv[])
 	db.config = &config;
 	config__init(&config);
 	rc = config__parse_args(&config, argc, argv);
-	if(rc != MOSQ_ERR_SUCCESS) return rc;
+	if(rc != MOSQ_ERR_SUCCESS){
+		config__cleanup(&config);
+		return rc;
+	}
 
 	if(config.test_configuration){
 		if(!db.config_file){
 			log__printf(NULL, MOSQ_LOG_ERR, "Please provide a configuration file to test.");
+			config__cleanup(&config);
 			return MOSQ_ERR_INVAL;
 		}else{
 			log__printf(NULL, MOSQ_LOG_INFO, "Configuration file is OK.");
+			config__cleanup(&config);
 			return MOSQ_ERR_SUCCESS;
 		}
 	}

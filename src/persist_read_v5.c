@@ -113,25 +113,33 @@ int persist__chunk_client_msg_read_v56(FILE *db_fptr, struct P_client_msg *chunk
 	struct mosquitto__packet_in prop_packet;
 	int rc;
 
+	memset(&prop_packet, 0, sizeof(struct mosquitto__packet));
+
 	read_e(db_fptr, &chunk->F, sizeof(struct PF_client_msg));
 	chunk->F.mid = ntohs(chunk->F.mid);
 	chunk->F.id_len = ntohs(chunk->F.id_len);
 
 	length -= (uint32_t)(sizeof(struct PF_client_msg) + chunk->F.id_len);
+	if(length > MQTT_MAX_PAYLOAD) goto error;
 
 	rc = persist__read_string_len(db_fptr, &chunk->clientid, chunk->F.id_len);
 	if(rc) return rc;
 
 	if(length > 0){
-		memset(&prop_packet, 0, sizeof(struct mosquitto__packet));
 		prop_packet.remaining_length = length;
 		prop_packet.payload = mosquitto__malloc(length);
-		if(!prop_packet.payload) return MOSQ_ERR_NOMEM;
+		if(!prop_packet.payload){
+			errno = ENOMEM;
+			goto error;
+		}
 
 		read_e(db_fptr, prop_packet.payload, length);
 		rc = property__read_all(CMD_PUBLISH, &prop_packet, &properties);
 		mosquitto__FREE(prop_packet.payload);
-		if(rc) return rc;
+		if(rc){
+			mosquitto__FREE(chunk->clientid);
+			return rc;
+		}
 
 		if(properties){
 			p = properties;
@@ -147,6 +155,8 @@ int persist__chunk_client_msg_read_v56(FILE *db_fptr, struct P_client_msg *chunk
 
 	return MOSQ_ERR_SUCCESS;
 error:
+	mosquitto__FREE(chunk->clientid);
+	mosquitto__FREE(prop_packet.payload);
 	log__printf(NULL, MOSQ_LOG_ERR, "Error: %s.", strerror(errno));
 	return 1;
 }
@@ -172,6 +182,7 @@ int persist__chunk_base_msg_read_v56(FILE *db_fptr, struct P_base_msg *chunk, ui
 	chunk->F.source_port = ntohs(chunk->F.source_port);
 
 	length -= (uint32_t)(sizeof(struct PF_base_msg) + chunk->F.payloadlen + chunk->F.source_id_len + chunk->F.source_username_len + chunk->F.topic_len);
+	if(length > MQTT_MAX_PAYLOAD) goto error;
 
 	if(chunk->F.source_id_len){
 		rc = persist__read_string_len(db_fptr, &chunk->source.id, chunk->F.source_id_len);
@@ -214,6 +225,7 @@ int persist__chunk_base_msg_read_v56(FILE *db_fptr, struct P_base_msg *chunk, ui
 
 	return MOSQ_ERR_SUCCESS;
 error:
+	mosquitto__FREE(chunk->payload);
 	mosquitto__FREE(chunk->source.id);
 	mosquitto__FREE(chunk->source.username);
 	mosquitto__FREE(chunk->topic);

@@ -902,7 +902,7 @@ uint64_t db__new_msg_id(void)
 	tmp = (nsec & 0x7FFFFF80); /* top 23-bits of the bottom 30 bits (1 billion ns), ~100 ns resolution */
 	id = id | (tmp >> 7);
 
-	while(id <= db.last_db_id){
+	if(id <= db.last_db_id){
 		id++;
 	}
 	db.last_db_id = id;

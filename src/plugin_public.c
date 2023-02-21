@@ -757,6 +757,10 @@ BROKER_EXPORT int mosquitto_persist_base_msg_add(struct mosquitto_base_msg *msg_
 
 	memset(&context, 0, sizeof(context));
 
+	if(msg_add->payloadlen > MQTT_MAX_PAYLOAD){
+		return MOSQ_ERR_INVAL;
+	}
+
 	/* db__message_store only takes a copy of .id and .username, so it is reasonably safe
 	 * to cast the const char * to char * */
 	context.id = (char *)msg_add->source_id;
